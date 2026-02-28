@@ -1,19 +1,30 @@
 'use strict';
 
 const express = require('express');
-const next = require('next');
 const { Server: SocketServer } = require('socket.io');
-const { spawn } = require('child_process');
-const { writeFileSync, mkdirSync, rmSync } = require('fs');
-const { v4: uuidv4 } = require('uuid');
-const path = require('path');
 const cors = require('cors');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
-const HOSTNAME = 'localhost';
 const IS_DEV = process.env.NODE_ENV !== 'production';
+const VERCEL_URL = process.env.VERCEL_APP_URL || '*';
 
-const VERCEL_URL = process.env.VERCEL_APP_URL || '';
+const PISTON_URL = 'https://emkc.org/api/v2/piston/execute';
+
+const PISTON_LANG = {
+    javascript: { language: 'javascript', version: '18.15.0' },
+    python: { language: 'python', version: '3.10.0' },
+    java: { language: 'java', version: '15.0.2' },
+    cpp: { language: 'c++', version: '10.2.0' },
+    c: { language: 'c', version: '10.2.0' },
+};
+
+const PISTON_FILENAME = {
+    javascript: 'main.js',
+    python: 'main.py',
+    java: 'Main.java',
+    cpp: 'main.cpp',
+    c: 'main.c',
+};
 
 const roomUsers = new Map();
 const roomState = new Map();
@@ -21,32 +32,6 @@ const roomState = new Map();
 function getRoomState(roomId) {
     if (!roomState.has(roomId)) roomState.set(roomId, {});
     return roomState.get(roomId);
-}
-
-function buildDockerArgs(language, tempDir) {
-    const base = [
-        'run', '--rm',
-        '--network', 'none',
-        '--memory', '256m',
-        '--cpus', '0.5',
-        '-v', `${tempDir}:/app`,
-        '-w', '/app',
-    ];
-
-    switch (language) {
-        case 'javascript':
-            return [...base, 'node:18-alpine', 'sh', '-c', 'node main.js <input.txt 2>&1'];
-        case 'python':
-            return [...base, 'python:3.11-alpine', 'sh', '-c', 'python main.py <input.txt 2>&1'];
-        case 'cpp':
-            return [...base, 'gcc:latest', 'sh', '-c', 'g++ main.cpp -o output 2>compile_error.txt && ./output <input.txt 2>&1 || (cat compile_error.txt >&2 && exit 1)'];
-        case 'c':
-            return [...base, 'gcc:latest', 'sh', '-c', 'gcc main.c -o output 2>compile_error.txt && ./output <input.txt 2>&1 || (cat compile_error.txt >&2 && exit 1)'];
-        case 'java':
-            return [...base, 'eclipse-temurin:17-jdk-alpine', 'sh', '-c', 'javac Main.java 2>compile_error.txt && java Main <input.txt 2>&1 || (cat compile_error.txt >&2 && exit 1)'];
-        default:
-            return null;
-    }
 }
 
 function registerSocketEvents(io) {
@@ -118,56 +103,47 @@ function registerSocketEvents(io) {
 async function start() {
     const app = express();
 
-    app.use(cors({
-        origin: VERCEL_URL || '*',
-        methods: ['GET', 'POST'],
-    }));
-
+    app.use(cors({ origin: VERCEL_URL, methods: ['GET', 'POST'] }));
     app.use(express.json());
 
-    app.post('/api/execute', (req, res) => {
+    app.post('/api/execute', async (req, res) => {
         const { code, language, input } = req.body;
 
         if (!code || !language) {
             return res.status(400).json({ error: 'code and language are required' });
         }
 
-        const tempDir = path.join('/tmp', uuidv4());
-        mkdirSync(tempDir, { recursive: true });
-
-        const inputFile = path.join(tempDir, 'input.txt');
-        writeFileSync(inputFile, typeof input === 'string' ? input : '');
-
-        const ext = { javascript: 'js', python: 'py', java: 'java', cpp: 'cpp', c: 'c' }[language] || language;
-        const filename = language === 'java' ? 'Main.java' : `main.${ext}`;
-        writeFileSync(path.join(tempDir, filename), code);
-
-        const dockerArgs = buildDockerArgs(language, tempDir);
-        if (!dockerArgs) {
-            rmSync(tempDir, { recursive: true, force: true });
+        const pistonLang = PISTON_LANG[language.toLowerCase()];
+        if (!pistonLang) {
             return res.status(400).json({ error: `Unsupported language: ${language}` });
         }
 
-        const docker = spawn('docker', dockerArgs, { timeout: 30000 });
-        let stdout = '';
-        let stderr = '';
+        const filename = PISTON_FILENAME[language.toLowerCase()];
 
-        docker.stdout.on('data', (d) => { stdout += d.toString(); });
-        docker.stderr.on('data', (d) => { stderr += d.toString(); });
+        try {
+            const pistonRes = await fetch(PISTON_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    language: pistonLang.language,
+                    version: pistonLang.version,
+                    files: [{ name: filename, content: code }],
+                    stdin: input || '',
+                }),
+            });
 
-        docker.on('close', (code) => {
-            rmSync(tempDir, { recursive: true, force: true });
-            if (code !== 0) {
-                res.json({ output: stdout, error: stderr || `Process exited with code ${code}` });
-            } else {
-                res.json({ output: stdout || '(No output)' });
+            const data = await pistonRes.json();
+            const run = data.run || {};
+
+            if (run.code !== 0 && run.stderr) {
+                return res.json({ output: run.stdout || '', error: run.stderr });
             }
-        });
 
-        docker.on('error', (err) => {
-            rmSync(tempDir, { recursive: true, force: true });
-            res.status(500).json({ output: '', error: `Docker error: ${err.message}` });
-        });
+            return res.json({ output: run.stdout || run.output || '(No output)' });
+
+        } catch (err) {
+            return res.status(500).json({ output: '', error: `Execution service error: ${err.message}` });
+        }
     });
 
     const server = app.listen(PORT, () => {
@@ -176,10 +152,7 @@ async function start() {
     });
 
     const io = new SocketServer(server, {
-        cors: {
-            origin: VERCEL_URL || '*',
-            methods: ['GET', 'POST'],
-        },
+        cors: { origin: VERCEL_URL, methods: ['GET', 'POST'] },
     });
 
     registerSocketEvents(io);
