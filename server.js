@@ -128,12 +128,22 @@ async function start() {
                     language: pistonLang.language,
                     version: pistonLang.version,
                     files: [{ name: filename, content: code }],
-                    stdin: input || '',
+                    stdin: input ? (input.endsWith('\n') ? input : input + '\n') : '',
                 }),
             });
 
             const data = await pistonRes.json();
+
+            if (data.message) {
+                return res.status(400).json({ error: `Piston: ${data.message}` });
+            }
+
+            const compile = data.compile || {};
             const run = data.run || {};
+
+            if (compile.code !== undefined && compile.code !== 0) {
+                return res.json({ output: '', error: compile.stderr || compile.output || 'Compilation failed' });
+            }
 
             if (run.code !== 0 && run.stderr) {
                 return res.json({ output: run.stdout || '', error: run.stderr });
