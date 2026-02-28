@@ -111,3 +111,10 @@ collaborative-code-editor/
 ├── vercel.json              # Vercel build config
 └── package.json
 ```
+
+---
+
+## Contributors
+
+- **Jatin Pathania**
+- **Harash**
