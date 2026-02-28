@@ -86,42 +86,6 @@ NODE_ENV=development
 
 ---
 
-## Deployment — Vercel + Render (Split)
-
-This project uses a split deployment strategy:
-
-| Platform | What runs |
-|----------|-----------|
-| **Vercel** | Next.js UI + `/api/rooms` + `/api/code/save` |
-| **Render** | `server.js` — Socket.io + `/api/execute` (Docker) |
-
-### 1. Deploy to Render (first)
-
-1. Push repo to GitHub
-2. [render.com](https://render.com) → **New Web Service** → select repo
-3. Configure:
-   - **Build command:** `npm install`
-   - **Start command:** `node server.js`
-4. Add environment variables:
-   ```
-   NODE_ENV=production
-   DATABASE_URL=<your-neon-url>
-   VERCEL_APP_URL=https://your-app.vercel.app
-   ```
-5. Deploy → copy the URL (e.g. `https://your-app.onrender.com`)
-
-### 2. Deploy to Vercel (after Render)
-
-1. [vercel.com](https://vercel.com) → **New Project** → same repo
-2. Add environment variables:
-   ```
-   DATABASE_URL=<your-neon-url>
-   NEXT_PUBLIC_RENDER_URL=https://your-app.onrender.com
-   ```
-3. Deploy
-
----
-
 ## Project Structure
 
 ```
