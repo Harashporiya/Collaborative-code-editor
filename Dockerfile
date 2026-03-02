@@ -1,4 +1,5 @@
-FROM node:18-alpine AS base
+FROM node:18-alpine3.18 AS base
+RUN apk add --no-cache libc6-compat openssl
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -14,6 +15,7 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN mkdir -p public
 
 # Generate Prisma Client
 RUN npx prisma generate
@@ -38,6 +40,10 @@ RUN apk add --no-cache \
 RUN which python3 && which g++ && which gcc && which javac && which java
 
 ENV NODE_ENV production
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+EXPOSE 3000
 
 # Don't use a separate user for now to avoid permission issues with /tmp and compiler outputs
 # If you want to use 'nextjs' user, ensure they have write access to /tmp and /app
@@ -47,11 +53,6 @@ ENV NODE_ENV production
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-# Ensure our custom server.js is copied (it handles socket.io)
-COPY --from=builder /app/server.js ./server.js
-
-EXPOSE 3000
-
-ENV PORT 3000
-
+# CMD ["node", "server.js"] is already the default for Next.js standalone,
+# as it creates its own server.js in the standalone directory.
 CMD ["node", "server.js"]

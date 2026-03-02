@@ -7,8 +7,8 @@ import { Loader2 } from 'lucide-react';
 
 function EditorContent() {
   const searchParams = useSearchParams();
-  const roomId = searchParams.get('room');
-  const username = searchParams.get('username');
+  const roomId = searchParams ? searchParams.get('room') : null;
+  const username = searchParams ? searchParams.get('username') : null;
   const [isLoading, setIsLoading] = useState(true);
   const [roomData, setRoomData] = useState<any>(null);
 
