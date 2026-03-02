@@ -2,7 +2,7 @@ FROM node:18-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
@@ -32,7 +32,8 @@ RUN apk add --no-cache \
     gcc \
     openjdk17-jdk \
     libc6-compat \
-    libc-dev
+    libc-dev \
+    openssl
 
 # Build-time verification: check if compilers are installed
 RUN which python3 && which g++ && which gcc && which javac && which java
