@@ -12,6 +12,7 @@ A real-time collaborative code editor with multi-language support and Docker-pow
 - **Monaco Editor** — Same editor engine as VS Code
 - **Dynamic I/O panel** — Reposition Input/Output panel to Left / Right / Top / Bottom
 - **Live user list** — See who's online in the room
+- **Audio communication** — Real-time voice communication between collaborators while coding
 - **Code save & download** — Snapshot to PostgreSQL or download as a file
 - **Multi-theme** — Dark, Light, High Contrast
 
@@ -22,12 +23,15 @@ A real-time collaborative code editor with multi-language support and Docker-pow
 | Layer | Technology |
 |-------|-----------|
 | Frontend | Next.js 14, React 18, TypeScript |
-| Editor | Monaco Editor |
-| Styling | Tailwind CSS, Radix UI |
-| Database | PostgreSQL (Neon), Prisma 5 |
-| Real-time | Socket.io 4 |
+| Editor | Monaco Editor, Yjs, y-websocket (CRDT collaboration) |
+| Styling | Tailwind CSS, Radix UI, Lucide React, Framer Motion |
+| Database | PostgreSQL (Neon), Prisma 5 ORM |
+| Real-time | Socket.io 4 (via Next.js API routes) |
+| Audio Communication | WebRTC for peer-to-peer voice/audio streaming |
+| State | Zustand |
 | Execution | Docker containers |
-| Server | Express 5 + custom Node.js server |
+| Server | Next.js API Routes (App Router + Pages Router) |
+| Utilities | Axios, bcryptjs, UUID, CORS, xterm.js |
 
 ---
 
