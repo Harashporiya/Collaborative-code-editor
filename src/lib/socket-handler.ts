@@ -1,9 +1,11 @@
 import { Server, Socket } from 'socket.io';
 import { roomUsers, roomState, getRoomState } from './socket-state';
 
+const socketToUsername = new Map<string, string>();
+const usernameToSocket = new Map<string, string>();
+
 export function registerSocketEvents(io: Server) {
     io.on('connection', (socket: Socket) => {
-        console.log(`[socket] New connection: ${socket.id}`);
         let currentRoom: string | null = null;
         let currentUsername: string | null = null;
 
@@ -11,6 +13,9 @@ export function registerSocketEvents(io: Server) {
             const roomId = String(rawRoomId || '').trim();
             currentRoom = roomId;
             currentUsername = username;
+
+            socketToUsername.set(socket.id, username);
+            usernameToSocket.set(username, socket.id);
 
             socket.join(roomId);
 
@@ -24,8 +29,6 @@ export function registerSocketEvents(io: Server) {
             if (roomState.has(roomId)) {
                 socket.emit('room-state', roomState.get(roomId));
             }
-
-            console.log(`[join]  "${username}" → room "${roomId}"  (${users.length} online)`);
         });
 
         socket.on('code-change', ({ roomId, code }) => {
@@ -62,24 +65,89 @@ export function registerSocketEvents(io: Server) {
             io.to(rId).emit('user-speaking', { username, isSpeaking });
         });
 
+        socket.on('audio-broadcast-start', ({ roomId, username }) => {
+            const rId = String(roomId || '').trim();
+            // Broadcast to all users in the room that this user is now streaming audio
+            socket.to(rId).emit('audio-broadcast-start', { username });
+        });
+
         socket.on('webrtc-offer', ({ to, roomId, offer }) => {
             const rId = String(roomId || '').trim();
-            io.to(rId).emit('webrtc-offer', { from: currentUsername, offer });
+            const fromUsername = currentUsername;
+            
+            const targetSocketId = usernameToSocket.get(to);
+            
+            if (targetSocketId) {
+                io.to(targetSocketId).emit('webrtc-offer', { 
+                    from: fromUsername, 
+                    offer,
+                    roomId: rId
+                });
+            } else {
+                console.warn(`[Socket] Target user "${to}" not found in mapping, broadcasting to room "${rId}"`);
+                socket.to(rId).emit('webrtc-offer', { 
+                    from: fromUsername, 
+                    offer,
+                    roomId: rId
+                });
+            }
         });
 
+        // WebRTC answer - send to specific user that it targets
         socket.on('webrtc-answer', ({ to, roomId, answer }) => {
             const rId = String(roomId || '').trim();
-            io.to(rId).emit('webrtc-answer', { from: currentUsername, answer });
+            const fromUsername = currentUsername;
+            
+            const targetSocketId = usernameToSocket.get(to);
+            
+            if (targetSocketId) {
+                // Send directly to the target user
+                io.to(targetSocketId).emit('webrtc-answer', { 
+                    from: fromUsername, 
+                    answer,
+                    roomId: rId
+                });
+            } else {
+                // Fallback: broadcast to room if target not found
+                console.warn(`[Socket] Target user "${to}" not found in mapping, broadcasting to room "${rId}"`);
+                socket.to(rId).emit('webrtc-answer', { 
+                    from: fromUsername, 
+                    answer,
+                    roomId: rId
+                });
+            }
         });
 
+        // WebRTC ICE candidate - send to specific user that it targets
         socket.on('webrtc-ice-candidate', ({ to, roomId, candidate }) => {
             const rId = String(roomId || '').trim();
-            io.to(rId).emit('webrtc-ice-candidate', { from: currentUsername, candidate });
+            const fromUsername = currentUsername;
+            const targetSocketId = usernameToSocket.get(to);
+            
+            if (targetSocketId) {
+                // Send directly to the target user
+                io.to(targetSocketId).emit('webrtc-ice-candidate', { 
+                    from: fromUsername, 
+                    candidate,
+                    roomId: rId
+                });
+            } else {
+                // Fallback: broadcast to room if target not found
+                console.warn(`[WebRTC] Target user "${to}" not found, broadcasting to room`);
+                socket.to(rId).emit('webrtc-ice-candidate', { 
+                    from: fromUsername, 
+                    candidate,
+                    roomId: rId
+                });
+            }
         });
 
         socket.on('disconnect', () => {
             if (!currentRoom || !roomUsers.has(currentRoom)) {
-                console.log(`[socket] Disconnect without room: ${socket.id}`);
+                socketToUsername.delete(socket.id);
+                if (currentUsername) {
+                    usernameToSocket.delete(currentUsername);
+                }
                 return;
             }
 
@@ -89,12 +157,15 @@ export function registerSocketEvents(io: Server) {
 
             io.to(currentRoom).emit('users-update', remaining);
 
-            console.log(`[leave] "${currentUsername}" ← room "${currentRoom}"  (${remaining.length} remaining)`);
+            // Clean up socket-to-username mappings
+            socketToUsername.delete(socket.id);
+            if (currentUsername) {
+                usernameToSocket.delete(currentUsername);
+            }
 
             if (remaining.length === 0) {
                 roomUsers.delete(currentRoom);
                 roomState.delete(currentRoom);
-                console.log(`[room]  Room "${currentRoom}" cleaned up (empty)`);
             }
         });
     });

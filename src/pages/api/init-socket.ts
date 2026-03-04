@@ -10,12 +10,10 @@ export const config = {
 
 const SocketHandler = (req: NextApiRequest, res: any) => {
     if (res.socket.server.io) {
-        console.log('Socket is already running');
         res.end();
         return;
     }
 
-    console.log('Socket is initializing');
     const io = new Server(res.socket.server, {
         path: '/api/socket',
         addTrailingSlash: false,
