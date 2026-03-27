@@ -45,20 +45,19 @@ export function useSocketSetup({
     setSpeakingUsers,
     toast,
 }: SocketSetupProps) {
-    // Create refs for values that change frequently to avoid dependency array issues
     const onlineUsersRef = React.useRef(onlineUsers);
     const handleRemoteTrackRef = React.useRef(handleRemoteTrack);
     const isMicEnabledRef = React.useRef(isMicEnabled);
 
-    React.useEffect(() => {
+    useEffect(() => {
         onlineUsersRef.current = onlineUsers;
     }, [onlineUsers]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         handleRemoteTrackRef.current = handleRemoteTrack;
     }, [handleRemoteTrack]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         isMicEnabledRef.current = isMicEnabled;
     }, [isMicEnabled]);
 

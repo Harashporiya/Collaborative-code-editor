@@ -1,23 +1,11 @@
 "use client";
 
-import React from 'react';
 import Editor from '@monaco-editor/react';
+import { useCodeEditor } from './CodeEditorContext';
 
-interface EditorPanelProps {
-    language: string;
-    code: string;
-    theme: string;
-    onChange: (value: string | undefined) => void;
-    onMount: (editor: any) => void;
-}
+export default function EditorPanel() {
+    const { language, code, theme, handleCodeChange, handleEditorDidMount } = useCodeEditor();
 
-export default function EditorPanel({
-    language,
-    code,
-    theme,
-    onChange,
-    onMount,
-}: EditorPanelProps) {
     return (
         <div className="flex-1 min-w-0 min-h-0">
             <Editor
@@ -25,8 +13,8 @@ export default function EditorPanel({
                 language={language}
                 value={code}
                 theme={theme}
-                onChange={onChange}
-                onMount={onMount}
+                onChange={handleCodeChange}
+                onMount={handleEditorDidMount}
                 options={{
                     minimap: { enabled: true },
                     fontSize: 14,

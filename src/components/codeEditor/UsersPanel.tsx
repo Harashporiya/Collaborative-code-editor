@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { useCodeEditor } from './CodeEditorContext';
 
 const AVATAR_COLORS = [
     'bg-blue-500',
@@ -19,19 +20,9 @@ function avatarColor(name: string) {
     return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-interface UsersPanelProps {
-    onlineUsers: string[];
-    username: string;
-    speakingUsers: Set<string>;
-    isHorizontal: boolean;
-}
+export default function UsersPanel() {
+    const { onlineUsers, username, speakingUsers, isHorizontal } = useCodeEditor();
 
-export default function UsersPanel({
-    onlineUsers,
-    username,
-    speakingUsers,
-    isHorizontal,
-}: UsersPanelProps) {
     return (
         <div className={`${isHorizontal ? 'border-b border-zinc-800' : 'border-r border-zinc-800 w-48 shrink-0 flex flex-col overflow-auto'}`}>
             <div className="px-4 py-2 bg-zinc-800/80 border-b border-zinc-700 flex items-center justify-between shrink-0">

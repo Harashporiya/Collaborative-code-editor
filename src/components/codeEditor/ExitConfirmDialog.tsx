@@ -1,20 +1,12 @@
 "use client";
 
-import React from 'react';
 import { Button } from '@/components/ui/button';
+import { useCodeEditor } from './CodeEditorContext';
 
-interface ExitConfirmDialogProps {
-    isOpen: boolean;
-    onConfirm: () => void;
-    onCancel: () => void;
-}
+export default function ExitConfirmDialog() {
+    const { showExitConfirm, handleExitRoom, setShowExitConfirm } = useCodeEditor();
 
-export default function ExitConfirmDialog({
-    isOpen,
-    onConfirm,
-    onCancel,
-}: ExitConfirmDialogProps) {
-    if (!isOpen) return null;
+    if (!showExitConfirm) return null;
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -25,7 +17,7 @@ export default function ExitConfirmDialog({
                 </p>
                 <div className="flex gap-3 justify-end">
                     <Button
-                        onClick={onCancel}
+                        onClick={() => setShowExitConfirm(false)}
                         variant="outline"
                         size="sm"
                         className="bg-zinc-800 border-zinc-700 hover:bg-zinc-700"
@@ -33,7 +25,7 @@ export default function ExitConfirmDialog({
                         No, Stay
                     </Button>
                     <Button
-                        onClick={onConfirm}
+                        onClick={handleExitRoom}
                         size="sm"
                         className="bg-red-600 hover:bg-red-700 text-white"
                     >
